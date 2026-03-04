@@ -99,29 +99,59 @@ def transform_monday_to_xero(monday_item: MondayItem) -> XeroInvoice:
 
 if __name__ == "__main__":
 
-    # This simulates the JSON payload Zapier would extract from a Monday webhook
-    fake_monday_payload = {
-        "item_id": "9182736450",
-        "item_name": "Website Redesign - Phase 2",
-        "client_name": "Stark Industries",
-        "client_email": "accounts@stark.com",
-        "project_description": "Website redesign and development - Phase 2 completion",
-        "amount": 4500.00,
-        "hours_worked": 30.0,
-        "due_date": "2026-04-01",
-        "status": "Ready to Invoice"
-    }
+    test_payloads = [
+        # ── Test 1: Perfect payload (should succeed) ──
+        {
+            "label": "GOOD PAYLOAD",
+            "data": {
+                "item_id": "9182736450",
+                "item_name": "Website Redesign - Phase 2",
+                "client_name": "Stark Industries",
+                "client_email": "accounts@stark.com",
+                "project_description": "Website redesign and development - Phase 2 completion",
+                "amount": 4500.00,
+                "hours_worked": 30.0,
+                "due_date": "2026-04-01",
+                "status": "Ready to Invoice"
+            }
+        },
+        # ── Test 2: Invalid email (Pydantic bouncer should catch this) ──
+        {
+            "label": "BAD EMAIL",
+            "data": {
+                "item_id": "1111111111",
+                "item_name": "Broken Email Test",
+                "client_name": "Wayne Enterprises",
+                "client_email": "not-a-valid-email",
+                "project_description": "Testing invalid email handling",
+                "amount": 1000.00,
+                "due_date": "2026-04-15",
+                "status": "Ready to Invoice"
+            }
+        },
+        # ── Test 3: Wrong date format (try/except should catch this) ──
+        {
+            "label": "BAD DATE",
+            "data": {
+                "item_id": "2222222222",
+                "item_name": "Broken Date Test",
+                "client_name": "Oscorp",
+                "client_email": "billing@oscorp.com",
+                "project_description": "Testing invalid date handling",
+                "amount": 2000.00,
+                "due_date": "15/04/2026",  # Wrong format — Xero needs YYYY-MM-DD
+                "status": "Ready to Invoice"
+            }
+        },
+    ]
 
-    try:
-        # Validate the incoming data with Pydantic (the bouncer)
-        monday_item = MondayItem(**fake_monday_payload)
-
-        # Transform it to Xero format
-        xero_invoice = transform_monday_to_xero(monday_item)
-
-        # Print the final Xero-ready payload
-        print("\n── Xero Invoice Payload ──────────────────────")
-        print(json.dumps(xero_invoice.model_dump(), indent=2))
-
-    except Exception as e:
-        logger.error(f"Transformation failed: {e}")
+    for test in test_payloads:
+        print(f"\n{'='*50}")
+        print(f"TEST: {test['label']}")
+        print('='*50)
+        try:
+            monday_item = MondayItem(**test["data"])
+            xero_invoice = transform_monday_to_xero(monday_item)
+            print(json.dumps(xero_invoice.model_dump(), indent=2))
+        except Exception as e:
+            logger.error(f"Caught error gracefully: {e}")
